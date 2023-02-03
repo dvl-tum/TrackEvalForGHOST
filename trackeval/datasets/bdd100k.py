@@ -53,6 +53,7 @@ class BDD100K(_BaseDataset):
         self.valid_classes = ['pedestrian', 'rider', 'car', 'bus', 'truck', 'train', 'motorcycle', 'bicycle']
         self.class_list = [cls.lower() if cls.lower() in self.valid_classes else None
                            for cls in self.config['CLASSES_TO_EVAL']]
+        
         if not all(self.class_list):
             raise TrackEvalException('Attempted to evaluate an invalid class. Only classes [pedestrian, rider, car, '
                                      'bus, truck, train, motorcycle, bicycle] are valid.')
