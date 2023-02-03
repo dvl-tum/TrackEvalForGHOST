@@ -32,7 +32,7 @@ class BDD100K(_BaseDataset):
         }
         return default_config
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, seq_list=None):
         """Initialise dataset, checking that all required files are present"""
         super().__init__()
         # Fill non-given config values with defaults
@@ -67,8 +67,10 @@ class BDD100K(_BaseDataset):
         self.seq_list = []
         self.seq_lengths = {}
 
-        self.seq_list = [seq_file.replace('.json', '') for seq_file in os.listdir(self.gt_fol)]
-
+        if seq_list is None:
+            self.seq_list = [seq_file.replace('.json', '') for seq_file in os.listdir(self.gt_fol)]
+        else:
+            self.seq_list = seq_list
         # Get trackers to eval
         if self.config['TRACKERS_TO_EVAL'] is None:
             self.tracker_list = os.listdir(self.tracker_fol)
@@ -82,7 +84,6 @@ class BDD100K(_BaseDataset):
             self.tracker_to_disp = dict(zip(self.tracker_list, self.config['TRACKER_DISPLAY_NAMES']))
         else:
             raise TrackEvalException('List of tracker files and tracker display names do not match.')
-
         for tracker in self.tracker_list:
             for seq in self.seq_list:
                 curr_file = os.path.join(self.tracker_fol, tracker, self.tracker_sub_fol, seq + '.json')
@@ -114,8 +115,30 @@ class BDD100K(_BaseDataset):
 
         with open(file) as f:
             data = json.load(f)
-
         # sort data by frame index
+        frames = list()
+        name_to_convert = None
+
+        already_name = 0
+        for i in range(len(data)):
+            if already_name == 0:
+                name_to_convert = '-'.join(data[i]['name'].split('-')[:2])
+                already_name = 1
+            data[i]['index'] = int(data[i]['name'].split('.')[0].split('-')[-1])
+            frames.append(int(data[i]['name'].split('.')[0].split('-')[-1]))
+        
+        if name_to_convert is None:
+            name_to_convert = seq
+        
+        # add empty frames
+        if not is_gt:
+            for i in range(self.seq_lengths[seq]):
+                if i+1 not in frames:
+                    empty = {
+                        'index': i+1,
+                        'name': name_to_convert + "-" + f"{i+1:07d}.jpg",
+                        'labels': []}
+                    data.append(empty)
         data = sorted(data, key=lambda x: x['index'])
 
         # check sequence length
@@ -139,11 +162,10 @@ class BDD100K(_BaseDataset):
             for i in range(len(data[t]['labels'])):
                 ann = data[t]['labels'][i]
                 if is_gt and (ann['category'] in self.distractor_classes or 'attributes' in ann.keys()
-                              and ann['attributes']['Crowd']):
+                              and ann['attributes']['crowd']):
                     ig_ids.append(i)
                 else:
                     keep_ids.append(i)
-
             if keep_ids:
                 raw_data['dets'][t] = np.atleast_2d([[data[t]['labels'][i]['box2d']['x1'],
                                                       data[t]['labels'][i]['box2d']['y1'],
@@ -179,7 +201,10 @@ class BDD100K(_BaseDataset):
         for k, v in key_map.items():
             raw_data[v] = raw_data.pop(k)
         raw_data['num_timesteps'] = num_timesteps
-        return raw_data
+
+        if len(frames) == 0:
+            return raw_data, 0, 0
+        return raw_data, min(frames), max(frames)
 
     @_timing.time
     def get_preprocessed_seq_data(self, raw_data, cls):

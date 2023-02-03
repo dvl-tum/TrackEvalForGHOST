@@ -52,17 +52,17 @@ class Evaluator:
         metrics_list = metrics_list + [Count()]  # Count metrics are always run
         metric_names = utils.validate_metrics_list(metrics_list)
         dataset_names = [dataset.get_name() for dataset in dataset_list]
+
         output_res = {}
         output_msg = {}
-
         for dataset, dataset_name in zip(dataset_list, dataset_names):
             # Get dataset info about what to evaluate
             output_res[dataset_name] = {}
             output_msg[dataset_name] = {}
             tracker_list, seq_list, class_list = dataset.get_eval_info()
-            print('\nEvaluating %i tracker(s) on %i sequence(s) for %i class(es) on %s dataset using the following '
-                  'metrics: %s\n' % (len(tracker_list), len(seq_list), len(class_list), dataset_name,
-                                     ', '.join(metric_names)))
+            # print('\nEvaluating %i tracker(s) on %i sequence(s) for %i class(es) on %s dataset using the following '
+            #       'metrics: %s\n' % (len(tracker_list), len(seq_list), len(class_list), dataset_name,
+            #                          ', '.join(metric_names)))
 
             # Evaluate each tracker
             for tracker in tracker_list:
@@ -71,7 +71,7 @@ class Evaluator:
                     # Evaluate each sequence in parallel or in series.
                     # returns a nested dict (res), indexed like: res[seq][class][metric_name][sub_metric field]
                     # e.g. res[seq_0001][pedestrian][hota][DetA]
-                    print('\nEvaluating %s\n' % tracker)
+                    # print('\nEvaluating %s\n' % tracker)
                     time_start = time.time()
                     if config['USE_PARALLEL']:
                         with Pool(config['NUM_PARALLEL_CORES']) as pool:
@@ -85,7 +85,7 @@ class Evaluator:
                         for curr_seq in sorted(seq_list):
                             res[curr_seq] = eval_sequence(curr_seq, dataset, tracker, class_list, metrics_list,
                                                           metric_names)
-
+                    
                     # Combine results over all sequences and then over all classes
 
                     # collecting combined cls keys (cls averaged, det averaged, super classes)
@@ -98,6 +98,7 @@ class Evaluator:
                             curr_res = {seq_key: seq_value[c_cls][metric_name] for seq_key, seq_value in res.items() if
                                         seq_key != 'COMBINED_SEQ'}
                             res['COMBINED_SEQ'][c_cls][metric_name] = metric.combine_sequences(curr_res)
+                    
                     # combine classes
                     if dataset.should_classes_combine:
                         combined_cls_keys += ['cls_comb_cls_av', 'cls_comb_det_av', 'all']
@@ -110,6 +111,7 @@ class Evaluator:
                                 metric.combine_classes_class_averaged(cls_res)
                             res['COMBINED_SEQ']['cls_comb_det_av'][metric_name] = \
                                 metric.combine_classes_det_averaged(cls_res)
+                    
                     # combine classes to super classes
                     if dataset.use_super_categories:
                         for cat, sub_cats in dataset.super_categories.items():
@@ -119,7 +121,6 @@ class Evaluator:
                                 cat_res = {cls_key: cls_value[metric_name] for cls_key, cls_value in
                                            res['COMBINED_SEQ'].items() if cls_key in sub_cats}
                                 res['COMBINED_SEQ'][cat][metric_name] = metric.combine_classes_det_averaged(cat_res)
-
                     # Print and output results in various formats
                     if config['TIME_PROGRESS']:
                         print('\nAll sequences for %s finished in %.2f seconds' % (tracker, time.time() - time_start))
@@ -137,7 +138,6 @@ class Evaluator:
                                 else:
                                     table_res = {seq_key: seq_value[c_cls][metric_name] for seq_key, seq_value
                                                  in res.items()}
-
                                 if config['PRINT_RESULTS'] and config['PRINT_ONLY_COMBINED']:
                                     dont_print = dataset.should_classes_combine and c_cls not in combined_cls_keys
                                     if not dont_print:
@@ -170,6 +170,7 @@ class Evaluator:
                     print('Tracker %s was unable to be evaluated.' % tracker)
                     print(err)
                     traceback.print_exc()
+                    
                     if config['LOG_ON_ERROR'] is not None:
                         with open(config['LOG_ON_ERROR'], 'a') as f:
                             print(dataset_name, file=f)
