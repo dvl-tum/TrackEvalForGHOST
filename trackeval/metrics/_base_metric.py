@@ -3,6 +3,11 @@ import numpy as np
 from abc import ABC, abstractmethod
 from .. import _timing
 from ..utils import TrackEvalException
+import logging
+
+
+logger = logging.getLogger('AllReIDTracker.EvalTrackEval')
+#logger.propagate = False
 
 
 class _BaseMetric(ABC):
@@ -65,9 +70,9 @@ class _BaseMetric(ABC):
 
     def print_table(self, table_res, tracker, cls):
         """Prints table of results for all sequences"""
-        print('')
+        logger.info('')
         metric_name = self.get_name()
-        self._row_print([metric_name + ': ' + tracker + '-' + cls] + self.summary_fields)
+        self._row_print([metric_name + ': ' + tracker + '-' + cls + '\n'] + self.summary_fields)
         for seq, results in sorted(table_res.items()):
             if seq == 'COMBINED_SEQ':
                 continue
@@ -97,7 +102,7 @@ class _BaseMetric(ABC):
         to_print = '%-35s' % argv[0]
         for v in argv[1:]:
             to_print += '%-10s' % str(v)
-        print(to_print)
+        logger.info(to_print)
 
     def summary_results(self, table_res):
         """Returns a simple summary of final results for a tracker"""
